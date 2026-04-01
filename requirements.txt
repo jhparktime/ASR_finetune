@@ -1,0 +1,11 @@
+torch
+transformers
+datasets
+peft
+accelerate
+soundfile
+librosa
+jiwer
+sentencepiece
+numpy
+faster-whisper

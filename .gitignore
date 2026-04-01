@@ -1,0 +1,9 @@
+.DS_Store
+.pycache/
+__pycache__/
+.venv/
+.hf_home/
+artifacts/
+*.pyc
+*.pyo
+*.pyd
