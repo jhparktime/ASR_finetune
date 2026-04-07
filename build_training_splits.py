@@ -249,6 +249,7 @@ def main() -> int:
     dev_ratio = float(args.dev_ratio if args.dev_ratio is not None else config.DEV_RATIO)
     test_ratio = float(args.test_ratio if args.test_ratio is not None else config.TEST_RATIO)
     severity_bins = int(args.severity_bins if args.severity_bins is not None else config.SEVERITY_BINS)
+    enable_source_file_filter = bool(getattr(config, "ENABLE_SOURCE_FILE_FILTER", True))
     min_source_file_avg_score = float(config.MIN_SOURCE_FILE_AVG_SCORE)
     min_source_file_segments = int(config.MIN_SOURCE_FILE_SEGMENTS)
     min_source_file_coverage = float(config.MIN_SOURCE_FILE_COVERAGE)
@@ -289,20 +290,24 @@ def main() -> int:
         filtered.append(item)
 
     file_quality_map = build_file_quality_map(filtered, report_details)
-    retained_source_files = {
-        source_audio_path
-        for source_audio_path, quality in file_quality_map.items()
-        if quality["segment_count"] >= min_source_file_segments
-        and quality["avg_score"] >= min_source_file_avg_score
-        and quality["coverage_ratio"] >= min_source_file_coverage
-        and quality["matched_whisper_ratio"] >= min_source_file_match_ratio
-    }
-    dropped_source_files = {
-        source_audio_path: quality
-        for source_audio_path, quality in file_quality_map.items()
-        if source_audio_path not in retained_source_files
-    }
-    filtered = [row for row in filtered if row["source_audio_path"] in retained_source_files]
+    if enable_source_file_filter:
+        retained_source_files = {
+            source_audio_path
+            for source_audio_path, quality in file_quality_map.items()
+            if quality["segment_count"] >= min_source_file_segments
+            and quality["avg_score"] >= min_source_file_avg_score
+            and quality["coverage_ratio"] >= min_source_file_coverage
+            and quality["matched_whisper_ratio"] >= min_source_file_match_ratio
+        }
+        dropped_source_files = {
+            source_audio_path: quality
+            for source_audio_path, quality in file_quality_map.items()
+            if source_audio_path not in retained_source_files
+        }
+        filtered = [row for row in filtered if row["source_audio_path"] in retained_source_files]
+    else:
+        retained_source_files = set(file_quality_map)
+        dropped_source_files = {}
 
     if not filtered:
         raise ValueError("No usable segments remain after segment and source-file filtering.")
@@ -428,6 +433,7 @@ def main() -> int:
         "min_source_file_segments": min_source_file_segments,
         "min_source_file_coverage": min_source_file_coverage,
         "min_source_file_match_ratio": min_source_file_match_ratio,
+        "enable_source_file_filter": enable_source_file_filter,
         "allow_empty_splits": allow_empty_splits,
         "retained_source_files": len(retained_source_files),
         "dropped_source_files": len(dropped_source_files),
