@@ -21,7 +21,7 @@ ARTIFACT_ROOT = PROJECT_ROOT / "artifacts"
 FILE_MANIFEST_DIR = ARTIFACT_ROOT / "file_manifests"
 ALIGNMENT_DIR = ARTIFACT_ROOT / "aligned_segments"
 SPLIT_MANIFEST_DIR = ARTIFACT_ROOT / "training_manifests"
-TRAINING_OUTPUT_DIR = ARTIFACT_ROOT / "training_outputs" / "whisper_small_lora_segments"
+TRAINING_OUTPUT_DIR = ARTIFACT_ROOT / "training_outputs" / "whisper_large_v3_lora_segments"
 
 # The scripts scan both source splits and rebuild a new speaker-level split.
 SOURCE_SPLIT_DIRS = ("1.Training", "2.Validation")
@@ -96,15 +96,17 @@ SEVERITY_BINS = 3
 ALLOW_EMPTY_SPLITS = False
 
 # Training defaults.
-MODEL_NAME = "openai/whisper-small"
+MODEL_NAME = "openai/whisper-large-v3"
 LANGUAGE = "Korean"
 TASK = "transcribe"
 SAMPLING_RATE = 16000
 MAX_LABEL_LENGTH = 256
+NORMALIZE_TRAIN_TEXT = True
 
-PER_DEVICE_TRAIN_BATCH_SIZE = 4
-PER_DEVICE_EVAL_BATCH_SIZE = 4
-GRADIENT_ACCUMULATION_STEPS = 4
+# Keep large-v3 defaults conservative enough for reproducible single-GPU runs.
+PER_DEVICE_TRAIN_BATCH_SIZE = 1
+PER_DEVICE_EVAL_BATCH_SIZE = 1
+GRADIENT_ACCUMULATION_STEPS = 16
 LEARNING_RATE = 1e-4
 NUM_TRAIN_EPOCHS = 5.0
 WARMUP_RATIO = 0.05
@@ -128,7 +130,7 @@ N_BEST_TOP_P = 0.95
 N_BEST_TEMPERATURE = 0.8
 
 SEED = 42
-FP16 = False
+FP16 = True
 BF16 = False
 GRADIENT_CHECKPOINTING = True
 LOCAL_FILES_ONLY = False

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 import wave
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,6 +44,33 @@ def normalize_text(text: Any) -> str:
     if text is None:
         return ""
     return SPACE_RE.sub(" ", str(text).replace("\n", " ").strip())
+
+
+def normalize_asr_text(text: Any, *, remove_space: bool = False) -> str:
+    """Normalize transcript text before ASR metric computation.
+
+    This keeps Hangul/letters/numbers, removes punctuation/symbol noise, and
+    canonicalizes unicode and whitespace so Korean WER/CER is less sensitive to
+    superficial formatting differences.
+    """
+    normalized = normalize_text(text)
+    if not normalized:
+        return ""
+
+    normalized = unicodedata.normalize("NFC", normalized).lower()
+    normalized_chars: list[str] = []
+    for char in normalized:
+        category = unicodedata.category(char)
+        if category.startswith(("P", "S", "C")):
+            if char.isspace():
+                normalized_chars.append(" ")
+            continue
+        normalized_chars.append(char)
+
+    normalized = SPACE_RE.sub(" ", "".join(normalized_chars)).strip()
+    if remove_space:
+        return normalized.replace(" ", "")
+    return normalized
 
 
 def get_nested_value(obj: dict[str, Any], dotted_path: str) -> Any:

@@ -23,7 +23,7 @@ from transformers import (
     WhisperProcessor,
 )
 
-from dataset_utils import load_jsonl
+from dataset_utils import load_jsonl, normalize_asr_text
 
 
 def load_config(config_path: Path) -> ModuleType:
@@ -110,11 +110,13 @@ class RawUtteranceDataset(Dataset):
         processor: WhisperProcessor,
         sampling_rate: int,
         max_label_length: int,
+        normalize_train_text: bool,
     ) -> None:
         self.rows = rows
         self.processor = processor
         self.sampling_rate = sampling_rate
         self.max_label_length = max_label_length
+        self.normalize_train_text = normalize_train_text
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -139,8 +141,12 @@ class RawUtteranceDataset(Dataset):
             sampling_rate=self.sampling_rate,
             return_tensors="pt",
         ).input_features[0]
+        transcript_text = row["text"]
+        if self.normalize_train_text:
+            transcript_text = normalize_asr_text(transcript_text)
+
         labels = self.processor.tokenizer(
-            row["text"],
+            transcript_text,
             truncation=True,
             max_length=self.max_label_length,
         ).input_ids
@@ -174,12 +180,33 @@ def build_metrics(processor: WhisperProcessor):
         label_ids[label_ids == -100] = processor.tokenizer.pad_token_id
         pred_str = processor.tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         label_str = processor.tokenizer.batch_decode(label_ids, skip_special_tokens=True)
+        normalized_pred_str = [normalize_asr_text(text) for text in pred_str]
+        normalized_label_str = [normalize_asr_text(text) for text in label_str]
+        normalized_pred_chars = [normalize_asr_text(text, remove_space=True) for text in pred_str]
+        normalized_label_chars = [normalize_asr_text(text, remove_space=True) for text in label_str]
         return {
-            "wer": wer(label_str, pred_str),
-            "cer": cer(label_str, pred_str),
+            "wer": wer(normalized_label_str, normalized_pred_str),
+            "cer": cer(normalized_label_chars, normalized_pred_chars),
+            "raw_wer": wer(label_str, pred_str),
+            "raw_cer": cer(label_str, pred_str),
         }
 
     return compute_metrics
+
+
+def maybe_load_split_summary(train_manifest: Path, eval_manifest: Path, test_manifest: Path | None) -> dict:
+    candidate_paths = []
+    for manifest_path in (train_manifest, eval_manifest, test_manifest):
+        if manifest_path is None:
+            continue
+        candidate_paths.append(manifest_path.resolve().parent / "summary.json")
+
+    for summary_path in candidate_paths:
+        if summary_path.exists():
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            payload["_summary_path"] = str(summary_path)
+            return payload
+    return {}
 
 
 def main() -> int:
@@ -192,6 +219,7 @@ def main() -> int:
     task = args.task or config.TASK
     sampling_rate = int(args.sampling_rate or config.SAMPLING_RATE)
     max_label_length = int(args.max_label_length or config.MAX_LABEL_LENGTH)
+    normalize_train_text = bool(getattr(config, "NORMALIZE_TRAIN_TEXT", False))
     per_device_train_batch_size = int(args.per_device_train_batch_size or config.PER_DEVICE_TRAIN_BATCH_SIZE)
     per_device_eval_batch_size = int(args.per_device_eval_batch_size or config.PER_DEVICE_EVAL_BATCH_SIZE)
     gradient_accumulation_steps = int(args.gradient_accumulation_steps or config.GRADIENT_ACCUMULATION_STEPS)
@@ -220,6 +248,8 @@ def main() -> int:
         raise ValueError(f"Train manifest is empty: {args.train_manifest}")
     if not eval_rows:
         raise ValueError(f"Eval manifest is empty: {args.eval_manifest}")
+
+    split_summary = maybe_load_split_summary(args.train_manifest, args.eval_manifest, args.test_manifest)
 
     processor = WhisperProcessor.from_pretrained(
         model_name,
@@ -252,12 +282,14 @@ def main() -> int:
         processor=processor,
         sampling_rate=sampling_rate,
         max_label_length=max_label_length,
+        normalize_train_text=normalize_train_text,
     )
     eval_dataset = RawUtteranceDataset(
         eval_rows,
         processor=processor,
         sampling_rate=sampling_rate,
         max_label_length=max_label_length,
+        normalize_train_text=normalize_train_text,
     )
 
     training_args = Seq2SeqTrainingArguments(
@@ -315,6 +347,7 @@ def main() -> int:
             processor=processor,
             sampling_rate=sampling_rate,
             max_label_length=max_label_length,
+            normalize_train_text=normalize_train_text,
         )
         test_metrics = trainer.evaluate(eval_dataset=test_dataset, metric_key_prefix="test")
         metrics.update(test_metrics)
@@ -328,6 +361,12 @@ def main() -> int:
         "task": task,
         "sampling_rate": sampling_rate,
         "max_label_length": max_label_length,
+        "normalize_train_text": normalize_train_text,
+        "metric_normalization": {
+            "wer": "normalize_asr_text",
+            "cer": "normalize_asr_text(remove_space=True)",
+            "raw_metrics_logged": True,
+        },
         "per_device_train_batch_size": per_device_train_batch_size,
         "per_device_eval_batch_size": per_device_eval_batch_size,
         "gradient_accumulation_steps": gradient_accumulation_steps,
@@ -350,6 +389,9 @@ def main() -> int:
         "eval_manifest": str(args.eval_manifest.resolve()),
         "test_manifest": str(args.test_manifest.resolve()) if args.test_manifest else "",
     }
+    if split_summary:
+        runtime_summary["split_summary_path"] = split_summary.pop("_summary_path", "")
+        runtime_summary["split_summary"] = split_summary
 
     (output_dir / "run_config.json").write_text(json.dumps(runtime_summary, ensure_ascii=False, indent=2), encoding="utf-8")
     (output_dir / "final_metrics.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8")

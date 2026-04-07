@@ -81,7 +81,7 @@ export HF_HOME=/path/to/hf_cache
 ### 4-2. 설정 수정
 
 - [config.py](/Users/jaehyun_lab/Desktop/AI_project/LoRA_ASR/config.py)에서 `DATA_ROOT`를 실제 서버 경로로 수정한다.
-- 기본 학습 모델은 `openai/whisper-small`이다.
+- 기본 학습 모델은 `openai/whisper-large-v3`이다.
 
 예시:
 
@@ -97,11 +97,11 @@ export LORA_ASR_DATA_ROOT="/실제/서버/경로/01.데이터"
 
 모델 캐시 준비:
 
-- 서버에서 처음 실행할 경우 `openai/whisper-small`이 자동 다운로드된다.
+- 서버에서 처음 실행할 경우 `openai/whisper-large-v3`가 자동 다운로드된다.
 - 네트워크 이슈를 줄이려면 학습 전에 한 번 미리 캐시한다.
 
 ```bash
-python -c "from transformers import WhisperProcessor, WhisperForConditionalGeneration; WhisperProcessor.from_pretrained('openai/whisper-small'); WhisperForConditionalGeneration.from_pretrained('openai/whisper-small')"
+python -c "from transformers import WhisperProcessor, WhisperForConditionalGeneration; WhisperProcessor.from_pretrained('openai/whisper-large-v3'); WhisperForConditionalGeneration.from_pretrained('openai/whisper-large-v3')"
 ```
 
 - 모델을 미리 캐시한 뒤 오프라인처럼 실행하려면 `--local-files-only` 옵션을 사용한다.
@@ -168,6 +168,12 @@ python build_training_splits.py
 - `artifacts/training_manifests/test.jsonl`
 - `artifacts/training_manifests/speaker_stats.json`
 - `artifacts/training_manifests/speaker_split.json`
+
+학습 metric 참고:
+
+- `train_lora.py`의 `wer`와 `cer`는 평가 전에 한글 기준 text normalization을 거친다.
+- normalization에서는 Unicode NFC, 소문자화, 공백 정리, 구두점/기호 제거를 적용한다.
+- `cer`는 공백까지 제거한 문자열로 계산하고, 비교용 원본 값은 `raw_wer`, `raw_cer`로 같이 저장된다.
 - `artifacts/training_manifests/split_records.json`
 - `artifacts/training_manifests/split_records.csv`
 - `artifacts/training_manifests/summary.json`
@@ -238,7 +244,7 @@ python infer_nbest.py \
 
 - 가상환경 생성 및 `requirements.txt` 설치 완료
 - `LORA_ASR_DATA_ROOT` 또는 `config.py`의 `DATA_ROOT` 설정 완료
-- `openai/whisper-small` 캐시 준비 완료
+- `openai/whisper-large-v3` 캐시 준비 완료
 - `HF_HOME` 설정 여부 확인
 - 전체 데이터 경로에서 `build_file_manifest.py` 실행 완료
 - `align_segments.py` 실행 완료
