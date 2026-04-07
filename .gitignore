@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 .hf_home/
 artifacts/
+aligned_segments/
+training_manifests/
+reference/
 *.pyc
 *.pyo
 *.pyd
