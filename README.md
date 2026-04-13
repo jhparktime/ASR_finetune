@@ -34,6 +34,10 @@
 - [infer_nbest.py](/Users/jaehyun_lab/Desktop/AI_project/LoRA_ASR/infer_nbest.py)
   - base 모델 또는 LoRA adapter에 대해 `N-best` 후보 문장을 생성한다.
   - 전체 파일 또는 `start_sec/end_sec` 구간 단위 추론을 지원한다.
+- [build_nbest_dataset.py](/Users/jaehyun_lab/Desktop/AI_project/LoRA_ASR/build_nbest_dataset.py)
+  - manifest 전체 세그먼트에 대해 batched `N-best` 추론을 수행한다.
+  - row별 `nbest_candidates`를 포함한 JSONL 데이터셋을 생성한다.
+  - 긴 실행을 위해 `--resume`, shard 분할 실행을 지원한다.
 
 ## 3. 디렉토리 구조
 
@@ -239,6 +243,34 @@ python infer_nbest.py \
   --num-beams 5 \
   --num-return-sequences 5
 ```
+
+### 4-8. manifest 전체 N-best 데이터셋 생성
+
+base 모델만 사용할 때:
+
+```bash
+python build_nbest_dataset.py \
+  --manifest ./artifacts/training_manifests/all.jsonl \
+  --model-name openai/whisper-large-v3 \
+  --output-path ./artifacts/nbest_datasets/all.whisper_large_v3.jsonl
+```
+
+LoRA adapter를 포함할 때:
+
+```bash
+python build_nbest_dataset.py \
+  --manifest ./artifacts/training_manifests/all.jsonl \
+  --model-name openai/whisper-large-v3 \
+  --adapter-path ./artifacts/training_outputs/run_004_large \
+  --output-path ./artifacts/nbest_datasets/all.run_004_large.jsonl \
+  --resume
+```
+
+설명:
+
+- 출력 JSONL의 각 row에는 원본 manifest 정보와 `nbest_candidates`가 함께 저장된다.
+- 대용량 실행을 대비해 `--resume`으로 이어쓰기할 수 있다.
+- 여러 프로세스로 나눌 때는 `--num-shards`와 `--shard-index`를 사용한다.
 
 ## 5. 실행 전 체크리스트
 

@@ -119,7 +119,8 @@ def main() -> int:
     effective_num_beam_groups = min(num_beam_groups, effective_num_beams, num_return_sequences)
     while effective_num_beam_groups > 1 and effective_num_beams % effective_num_beam_groups != 0:
         effective_num_beam_groups -= 1
-    if effective_num_beam_groups <= 1:
+    use_group_beam_search = effective_num_beam_groups > 1
+    if not use_group_beam_search:
         effective_num_beam_groups = 1
         diversity_penalty = 0.0
 
@@ -148,17 +149,30 @@ def main() -> int:
     inputs = processor.feature_extractor(audio, sampling_rate=sampling_rate, return_tensors="pt")
 
     candidates = []
+    beam_generate_kwargs = {
+        "input_features": inputs.input_features,
+        "num_beams": effective_num_beams,
+        "num_return_sequences": num_return_sequences,
+        "max_length": max_length,
+        "return_dict_in_generate": True,
+        "output_scores": True,
+    }
+    if use_group_beam_search:
+        beam_generate_kwargs["num_beam_groups"] = effective_num_beam_groups
+        beam_generate_kwargs["diversity_penalty"] = diversity_penalty
+
     with torch.no_grad():
-        beam_outputs = model.generate(
-            input_features=inputs.input_features,
-            num_beams=effective_num_beams,
-            num_return_sequences=num_return_sequences,
-            num_beam_groups=effective_num_beam_groups,
-            diversity_penalty=diversity_penalty,
-            max_length=max_length,
-            return_dict_in_generate=True,
-            output_scores=True,
-        )
+        try:
+            beam_outputs = model.generate(**beam_generate_kwargs)
+        except ValueError as exc:
+            if use_group_beam_search and "Group Beam Search requires `trust_remote_code=True`" in str(exc):
+                effective_num_beam_groups = 1
+                diversity_penalty = 0.0
+                beam_generate_kwargs.pop("num_beam_groups", None)
+                beam_generate_kwargs.pop("diversity_penalty", None)
+                beam_outputs = model.generate(**beam_generate_kwargs)
+            else:
+                raise
     beam_texts = processor.tokenizer.batch_decode(beam_outputs.sequences, skip_special_tokens=True)
     beam_scores = getattr(beam_outputs, "sequences_scores", None)
     candidates = dedupe_candidates(candidates, beam_texts, beam_scores, source="beam")
