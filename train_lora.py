@@ -72,6 +72,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bf16", action="store_true")
     parser.add_argument("--gradient-checkpointing", action="store_true")
     parser.add_argument("--local-files-only", action="store_true")
+    # GPU 밥 먹여주는 속도를 높이기 위한 Worker 옵션 추가!
+    parser.add_argument("--dataloader-num-workers", type=int, default=8)
     return parser.parse_args()
 
 
@@ -237,6 +239,7 @@ def main() -> int:
     bf16 = bool(args.bf16 or config.BF16)
     gradient_checkpointing = bool(args.gradient_checkpointing or config.GRADIENT_CHECKPOINTING)
     local_files_only = bool(args.local_files_only or config.LOCAL_FILES_ONLY)
+    dataloader_num_workers = args.dataloader_num_workers
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -266,7 +269,9 @@ def main() -> int:
     model.config.use_cache = False
 
     if gradient_checkpointing:
-        model.gradient_checkpointing_enable()
+        model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+
+    model.enable_input_require_grads()
 
     lora_config = LoraConfig(
         r=lora_r,
@@ -317,6 +322,8 @@ def main() -> int:
         remove_unused_columns=False,
         report_to=[],
         seed=seed,
+        ddp_find_unused_parameters=False,
+        dataloader_num_workers=dataloader_num_workers, # 워커 적용
     )
 
     trainer = Seq2SeqTrainer(
@@ -385,6 +392,7 @@ def main() -> int:
         "bf16": bf16,
         "gradient_checkpointing": gradient_checkpointing,
         "local_files_only": local_files_only,
+        "dataloader_num_workers": dataloader_num_workers,
         "train_manifest": str(args.train_manifest.resolve()),
         "eval_manifest": str(args.eval_manifest.resolve()),
         "test_manifest": str(args.test_manifest.resolve()) if args.test_manifest else "",

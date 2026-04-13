@@ -6,6 +6,7 @@ import json
 import re
 import unicodedata
 import wave
+import soundfile as sf  # wave 대신 soundfile 사용
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -173,16 +174,27 @@ def parse_speaker_meta(label: dict[str, Any], stem: str) -> dict[str, str]:
 
 
 def read_audio_meta(path: Path) -> AudioMeta:
-    with wave.open(str(path), "rb") as wav_file:
-        sample_rate = wav_file.getframerate()
-        channels = wav_file.getnchannels()
-        sample_width = wav_file.getsampwidth()
-        frames = wav_file.getnframes()
-    duration_sec = frames / sample_rate if sample_rate else 0.0
+    # wave.open 대신 soundfile.info 사용 (μ-law 등 다양한 포맷 지원)
+    info = sf.info(str(path))
+    
+    # wave의 getsampwidth()를 모사하기 위한 바이트 크기 맵핑
+    subtype_to_width = {
+        'PCM_16': 2,
+        'PCM_24': 3,
+        'PCM_32': 4,
+        'PCM_U8': 1,
+        'PCM_S8': 1,
+        'FLOAT': 4,
+        'DOUBLE': 8,
+        'ULAW': 1,  # format 7 에러의 원인이었던 포맷
+        'ALAW': 1,
+    }
+    sample_width = subtype_to_width.get(info.subtype, 2) # 기본값 2(16bit)
+    
     return AudioMeta(
-        sample_rate=sample_rate,
-        channels=channels,
+        sample_rate=info.samplerate,
+        channels=info.channels,
         sample_width=sample_width,
-        duration_sec=duration_sec,
+        duration_sec=info.duration,
         size_bytes=path.stat().st_size,
     )

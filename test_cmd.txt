@@ -1,0 +1,23 @@
+[SMALL]
+torchrun --nproc_per_node=2 eval_lora.py \
+  --manifest ./artifacts/training_manifests/test.jsonl \
+  --model-name openai/whisper-small \
+  > eval_result.log 2>&1
+  
+torchrun --nproc_per_node=2 eval_lora.py \
+  --manifest ./artifacts/training_manifests/test.jsonl \
+  --model-name openai/whisper-small \
+  --adapter-path ./artifacts/training_outputs/run_003_small \
+  > eval_result.log 2>&1
+
+[LARGE]
+torchrun --nproc_per_node=2 eval_lora.py \
+  --manifest ./artifacts/training_manifests/test.jsonl \
+  --model-name openai/whisper-large-v3 \
+  > eval_result.log 2>&1
+  
+torchrun --nproc_per_node=2 eval_lora.py \
+  --manifest ./artifacts/training_manifests/test.jsonl \
+  --model-name openai/whisper-large-v3 \
+  --adapter-path ./artifacts/training_outputs/run_004_large \
+  > eval_result.log 2>&1
