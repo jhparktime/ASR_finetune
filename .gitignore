@@ -7,6 +7,11 @@ artifacts/
 aligned_segments/
 training_manifests/
 reference/
+raw_medical_data.jsonl
+augmented_medical*.jsonl
+run_001_small/
+run_002_large/
+*.ipynb_checkpoints/
 *.pyc
 *.pyo
 *.pyd

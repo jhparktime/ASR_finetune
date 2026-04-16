@@ -11,6 +11,28 @@
   4. `Whisper LoRA` 학습
 - 기본 저장 정책: segment WAV를 대량 저장하지 않고, `source_audio_path + start_sec + end_sec`만 manifest에 저장한다.
 - 추가 기능: `N-best` 추론 스크립트 제공
+- 추가 기능: `MedGemma` 기반 의료 문진 데이터 증강 스크립트 제공
+
+## 1-1. MedGemma 증강과 Colab
+
+- 의료 QA 원본을 문진 데이터셋으로 변환하는 스크립트는 [augment_medgemma.py](/Users/jaehyun_lab/Desktop/AI_project/LoRA_ASR/augment_medgemma.py)에 있다.
+- Colab에서 바로 실행할 수 있도록 [notebooks/medgemma_augment_colab.ipynb](/Users/jaehyun_lab/Desktop/AI_project/LoRA_ASR/notebooks/medgemma_augment_colab.ipynb)를 추가했다.
+- Colab 전용 최소 의존성은 [requirements-colab.txt](/Users/jaehyun_lab/Desktop/AI_project/LoRA_ASR/requirements-colab.txt)에 분리해 두었다.
+- `raw_medical_data.jsonl`과 생성 결과 JSONL은 Git에 올리지 않고 Drive에서 읽고 쓰는 흐름을 권장한다.
+
+Colab 빠른 시작:
+
+```bash
+git clone https://github.com/jhparktime/ASR_finetune.git
+cd ASR_finetune/LoRA_ASR
+pip install -r requirements-colab.txt
+```
+
+권장:
+
+- Hugging Face access token을 Colab Secret `HF_TOKEN`으로 등록한다.
+- `google/medgemma-27b-text-it`는 Colab GPU 메모리 상황에 따라 바로 로드되지 않을 수 있으므로 처음에는 `--load-in-4bit --limit 1 --batch-size 1`로 검증한다.
+- 입력 파일은 Google Drive에 올리고, 출력도 Drive에 저장한다.
 
 ## 2. 코드 설명
 
@@ -52,6 +74,10 @@ LoRA_ASR/
 ├── build_training_splits.py
 ├── train_lora.py
 ├── infer_nbest.py
+├── augment_medgemma.py
+├── requirements-colab.txt
+├── notebooks/
+    └── medgemma_augment_colab.ipynb
 └── artifacts/
     ├── file_manifests/
     ├── aligned_segments/
