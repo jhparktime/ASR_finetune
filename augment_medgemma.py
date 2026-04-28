@@ -12,31 +12,36 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 DEFAULT_SYSTEM_PROMPT = """당신은 의료 지식이 있는 LLM을 학습시키기 위한 가상 의료 문진 데이터를 생성하는 전문가입니다.
 목표는 구음장애 환자 또는 보호자의 발화를 ASR(음성인식)이 교정한 텍스트를 입력으로 받고, 의사가 보기 좋은 구조화된 문진폼을 출력하는 학습 데이터를 만드는 것입니다.
 
-주어진 [의학 문제]의 의학 지식과 정답을 바탕으로, 실제 환자/보호자가 외래, 응급실, 치과, 상담 진료에서 말할 법한 '환자 진술(input)'과 의사용 '구조화된 의료 문진표(output)'를 생성해 주세요.
+주어진 [의학 문제]의 의학 지식과 정답을 바탕으로, 실제 환자/보호자가 외래, 응급실, 치과, 상담 진료에서 말할 법한 '환자 진술(input)'과 의사용 문진표의 각 섹션 내용을 생성해 주세요.
 
 [조건]
 1. input은 ASR로 교정된 구음장애 환자/보호자의 자연스러운 구어체 진술이어야 합니다. 증상, 불편감, 걱정, 복용 중인 약, 이미 들은 검사 이상 정도만 말하게 하세요.
 2. input에서 시험문제 흔적을 제거하세요. "무슨 검사가 필요한가요?", "가장 적절한 치료는 무엇인가요?", "정답이 뭔가요?" 같은 문제풀이식 질문을 만들지 마세요.
 3. input에는 원본 정답이 되는 진단명, 검사명, 약물명, 치료명을 가능한 한 직접 쓰지 마세요. 단, 환자가 이미 진단받았거나 복용 중이거나 검사 결과를 들었다는 설정이면 자연스럽게 포함할 수 있습니다.
-4. output은 반드시 하나의 문자열(string) 값으로 작성하고, 그 문자열 안에 CC:, PI:, A&P: 구조를 포함하세요. output을 JSON 객체, dict, list, 중첩 구조로 만들지 마세요.
-5. CC와 PI는 input에서 확인되는 환자 진술만 요약하고, input에 없는 검사/진찰 결과를 PI에 새로 만들어 넣지 마세요.
-6. 원본 문제의 정답 또는 핵심 이론은 A&P에 의사의 평가와 계획으로 자연스럽게 반영하세요. 필요한 경우 감별진단, 권장 검사, 치료 방향을 제시하되 실제 임상 판단처럼 표현하세요.
-7. 순수 이론 문제(예: 유전 양식, 약리 기전, 해부학 등)는 해당 질환을 의심받아 내원한 환자/보호자 상황으로 바꾸세요. 그래도 input은 환자 호소와 걱정 중심이어야 합니다.
-8. 정말로 의학적 맥락으로 도저히 변환이 불가능한 쓰레기 데이터인 경우에만 예외적으로 "SKIP"을 출력하세요.
-9. 절대 Thinking Process나 부연 설명을 작성하지 마세요. 반드시 아래의 [출력 JSON 형식]에 맞는 순수 JSON 코드만 출력해야 합니다.
-10. 모든 출력은 특정 영어로만 표현이 가능한 단어를 제외하고 한국어로만 작성하세요.
+4. 문진표 라벨(CC:, PI:, A&P:)은 작성하지 말고, cc/pi/ap 필드의 내용만 생성하세요. 최종 라벨은 후처리 코드가 붙입니다.
+5. cc는 주소증 한 줄 요약입니다.
+6. pi는 input에서 확인되는 환자 진술만 요약하고, input에 없는 검사/진찰 결과를 새로 만들어 넣지 마세요.
+7. ap에는 원본 문제의 정답 또는 핵심 이론을 의사의 평가와 계획으로 자연스럽게 반영하세요. 필요한 경우 감별진단, 권장 검사, 치료 방향을 제시하되 실제 임상 판단처럼 표현하세요.
+8. 순수 이론 문제(예: 유전 양식, 약리 기전, 해부학 등)는 해당 질환을 의심받아 내원한 환자/보호자 상황으로 바꾸세요. 그래도 input은 환자 호소와 걱정 중심이어야 합니다.
+9. 정말로 의학적 맥락으로 도저히 변환이 불가능한 쓰레기 데이터인 경우에만 예외적으로 "SKIP"을 출력하세요.
+10. 절대 Thinking Process나 부연 설명을 작성하지 마세요. 반드시 아래의 [출력 JSON 형식]에 맞는 순수 JSON 코드만 출력해야 합니다.
+11. 모든 출력은 특정 영어로만 표현이 가능한 단어를 제외하고 한국어로만 작성하세요.
 
 [잘못된 output 예시]
 "output": {"CC": "...", "PI": "...", "A&P": {"평가": "...", "계획": "..."}}
 
 [올바른 output 예시]
-"output": "CC: ...\nPI: ...\nA&P: ..."
+"cc": "피로감 및 근육 경련",
+"pi": "만성 신장 질환 병력이 있는 환자가 최근 피로감과 근육 경련을 호소함. 혈액검사에서 마그네슘 저하를 들었다고 함.",
+"ap": "저마그네슘혈증은 칼륨 불균형을 악화시킬 수 있으므로 마그네슘 보충을 고려한다. 신기능과 전해질을 추적한다."
 
 [출력 JSON 형식]
 {
   "instruction": "다음 환자의 진술을 바탕으로 핵심 증상을 파악하고, 의사가 보기 편한 구조화된 의료 문진표를 작성하세요.",
   "input": "[환자/보호자의 자연스러운 증상 중심 진술]",
-  "output": "CC: ...\nPI: ...\nA&P: ..."
+  "cc": "[주소증 한 줄 요약]",
+  "pi": "[input에서 확인되는 환자 진술 요약]",
+  "ap": "[의사의 평가와 계획]"
 }"""
 
 
@@ -241,11 +246,7 @@ def flatten_text(value: Any) -> str:
 
 def normalize_output_text(value: Any) -> str:
     if isinstance(value, dict):
-        cc = flatten_text(get_case_insensitive(value, "CC", "chief_complaint", "주소증"))
-        pi = flatten_text(get_case_insensitive(value, "PI", "present_illness", "현병력"))
-        ap = flatten_text(
-            get_case_insensitive(value, "A&P", "AP", "assessment_plan", "평가 및 계획")
-        )
+        cc, pi, ap = extract_section_fields(value)
         sections = []
         if cc:
             sections.append(f"CC: {cc}")
@@ -256,6 +257,39 @@ def normalize_output_text(value: Any) -> str:
         if sections:
             return "\n".join(sections)
     return flatten_text(value)
+
+
+def extract_section_fields(data: Dict[str, Any]) -> tuple[str, str, str]:
+    cc = flatten_text(
+        get_case_insensitive(data, "cc", "CC", "chief_complaint", "주소증")
+    )
+    pi = flatten_text(
+        get_case_insensitive(data, "pi", "PI", "present_illness", "현병력")
+    )
+    ap = flatten_text(
+        get_case_insensitive(
+            data,
+            "ap",
+            "a&p",
+            "A&P",
+            "assessment_plan",
+            "assessment_and_plan",
+            "평가 및 계획",
+            "평가와 계획",
+        )
+    )
+    return cc, pi, ap
+
+
+def build_output_text(result: Dict[str, Any]) -> str:
+    cc, pi, ap = extract_section_fields(result)
+    if cc and pi and ap:
+        return f"CC: {cc}\nPI: {pi}\nA&P: {ap}"
+
+    output_text = normalize_output_text(get_case_insensitive(result, "output"))
+    if has_required_output_sections(output_text):
+        return output_text
+    return ""
 
 
 def has_required_output_sections(output_text: str) -> bool:
@@ -271,7 +305,7 @@ def is_valid_data(json_data: Dict[str, Any]) -> bool:
         return False
 
     keys_lower = {str(key).lower() for key in json_data.keys()}
-    required_keys = {"instruction", "input", "output"}
+    required_keys = {"instruction", "input"}
     if not required_keys.issubset(keys_lower):
         return False
 
@@ -280,7 +314,7 @@ def is_valid_data(json_data: Dict[str, Any]) -> bool:
 
     instruction = flatten_text(get_case_insensitive(json_data, "instruction"))
     input_text = flatten_text(get_case_insensitive(json_data, "input"))
-    output_text = normalize_output_text(get_case_insensitive(json_data, "output"))
+    output_text = build_output_text(json_data)
 
     for text in [instruction, input_text, output_text]:
         if len(text) < 5:
@@ -307,9 +341,7 @@ def normalize_result(result: Dict[str, Any], source_item: Dict[str, Any]) -> Dic
             or DEFAULT_INSTRUCTION
         ),
         "input": result.get("input") or result.get("Input") or result.get("INPUT") or "",
-        "output": normalize_output_text(
-            result.get("output") or result.get("Output") or result.get("OUTPUT") or ""
-        ),
+        "output": build_output_text(result),
     }
 
     source_key_map = {
