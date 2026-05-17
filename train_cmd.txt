@@ -3,7 +3,7 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.run --nproc_per_node=2 --ma
   --train-manifest ./artifacts/training_manifests/train.jsonl \
   --eval-manifest ./artifacts/training_manifests/dev.jsonl \
   --test-manifest ./artifacts/training_manifests/test.jsonl \
-  --output-dir ./artifacts/training_outputs/run_003_small \
+  --output-dir ./artifacts/training_outputs/run_011_small \
   --model-name openai/whisper-small \
   --per-device-train-batch-size 64 \
   --per-device-eval-batch-size 64 \
@@ -19,7 +19,7 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.run --nproc_per_node=2 --ma
   --train-manifest ./artifacts/training_manifests/train.jsonl \
   --eval-manifest ./artifacts/training_manifests/dev.jsonl \
   --test-manifest ./artifacts/training_manifests/test.jsonl \
-  --output-dir ./artifacts/training_outputs/run_004_large \
+  --output-dir ./artifacts/training_outputs/run_012_large \
   --model-name openai/whisper-large-v3 \
   --per-device-train-batch-size 32 \
   --per-device-eval-batch-size 32 \

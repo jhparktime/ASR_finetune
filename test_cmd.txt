@@ -1,23 +1,47 @@
 [SMALL]
 torchrun --nproc_per_node=2 eval_lora.py \
-  --manifest ./artifacts/training_manifests/test.jsonl \
+  --manifest "./artifacts/training_manifests(seg-large-050)/test.jsonl" \
   --model-name openai/whisper-small \
   > eval_result.log 2>&1
   
 torchrun --nproc_per_node=2 eval_lora.py \
-  --manifest ./artifacts/training_manifests/test.jsonl \
+  --manifest "./artifacts/training_manifests(seg-small)/test.jsonl" \
   --model-name openai/whisper-small \
-  --adapter-path ./artifacts/training_outputs/run_003_small \
+  --adapter-path "./artifacts/training_outputs/run_011_small" \
   > eval_result.log 2>&1
 
 [LARGE]
 torchrun --nproc_per_node=2 eval_lora.py \
-  --manifest ./artifacts/training_manifests/test.jsonl \
+  --manifest "./artifacts/training_manifests(seg-large-000)/test.jsonl" \
   --model-name openai/whisper-large-v3 \
-  > eval_result.log 2>&1
+  > ./eval_outputs/eval_result_base_000.log 2>&1
   
 torchrun --nproc_per_node=2 eval_lora.py \
-  --manifest ./artifacts/training_manifests/test.jsonl \
+  --manifest "./artifacts/training_manifests(seg-large-000)/test.jsonl" \
   --model-name openai/whisper-large-v3 \
-  --adapter-path ./artifacts/training_outputs/run_004_large \
-  > eval_result.log 2>&1
+  --adapter-path "./artifacts/training_outputs(seg-large)/run_006_large(seg-large-000)" \
+  > ./eval_outputs/eval_result_lora_000.log 2>&1
+
+torchrun --nproc_per_node=2 eval_lora.py \
+  --manifest "./artifacts/training_manifests(seg-large-000)/test.jsonl" \
+  --model-name openai/whisper-large-v3 \
+  --adapter-path "./artifacts/training_outputs(seg-large)/run_008_large(seg-large-010)" \
+  > ./eval_outputs/eval_result_lora_010.log 2>&1
+
+torchrun --nproc_per_node=2 eval_lora.py \
+  --manifest "./artifacts/training_manifests(seg-large-000)/test.jsonl" \
+  --model-name openai/whisper-large-v3 \
+  --adapter-path "./artifacts/training_outputs(seg-large)/run_010_large(seg-large-025)" \
+  > ./eval_outputs/eval_result_lora_025.log 2>&1
+
+torchrun --nproc_per_node=2 eval_lora.py \
+  --manifest "./artifacts/training_manifests(seg-large-000)/test.jsonl" \
+  --model-name openai/whisper-large-v3 \
+  --adapter-path "./artifacts/training_outputs(seg-large)/run_004_large(seg-large-035)" \
+  > ./eval_outputs/eval_result_lora_035.log 2>&1
+
+torchrun --nproc_per_node=2 eval_lora.py \
+  --manifest "./artifacts/training_manifests(seg-large-000)/test.jsonl" \
+  --model-name openai/whisper-large-v3 \
+  --adapter-path "./artifacts/training_outputs(seg-large)/run_012_large(seg-large-050)" \
+  > ./eval_outputs/eval_result_lora_050.log 2>&1
